@@ -1,0 +1,6 @@
+{
+  "name": "AWD Check",
+  "description": "Scan or upload a VIN image to check if a vehicle is AWD, 4x4, FWD, or RWD and decode its year, make, and model.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
