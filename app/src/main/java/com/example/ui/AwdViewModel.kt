@@ -110,7 +110,7 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val resizedBitmap = resizeBitmap(rawBitmap, 1024)
+                val resizedBitmap = resizeBitmap(rawBitmap, 2048)
                 val base64Image = withContext(Dispatchers.IO) {
                     bitmapToBase64(resizedBitmap)
                 }
@@ -143,27 +143,22 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                     NetworkClient.geminiService.generateContent(apiKey, request)
                 }
 
-                val extractedText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                    ?.trim()?.uppercase()?.replace(Regex("[\\s-]"), "") ?: ""
+                val rawResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                Log.d("AwdViewModel", "Raw Gemini OCR response: $rawResponse")
 
-                Log.d("AwdViewModel", "Extracted text: $extractedText")
+                val extractedVin = extractVin(rawResponse)
 
-                if (extractedText.isEmpty() || extractedText.contains("NOTFOUND") || extractedText.contains("NOT_FOUND")) {
+                if (extractedVin == null) {
                     _uiState.value = ScanUiState.Error("Could not detect a clear VIN number in this image. Please ensure the VIN is well-lit and clearly readable, or type it manually.")
                     return@launch
                 }
 
-                // Clean other words that might be returned
-                val matchedVin = Regex("[A-Z0-9]{17}").find(extractedText)?.value
-
-                if (matchedVin == null) {
-                    _uiState.value = ScanUiState.Error("Extracted text did not contain a valid 17-character VIN block ($extractedText). Try aligning image more closely or manual typing.")
-                    return@launch
-                }
+                val sanitizedVin = sanitizeVin(extractedVin)
+                Log.d("AwdViewModel", "Extracted VIN: $extractedVin, Sanitized VIN: $sanitizedVin")
 
                 // 3. Decode decoded VIN with NHTSA
                 _uiState.value = ScanUiState.DecodingVin
-                val scan = performNhtsaDecode(matchedVin)
+                val scan = performNhtsaDecode(sanitizedVin)
                 _uiState.value = ScanUiState.Success(scan)
                 _selectedScan.value = scan
 
@@ -171,6 +166,71 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = ScanUiState.Error("Error: ${e.localizedMessage ?: e.message}")
             }
         }
+    }
+
+    private fun sanitizeVin(vin: String): String {
+        return vin.uppercase()
+            .replace('I', '1')
+            .replace('O', '0')
+            .replace('Q', '0')
+    }
+
+    private fun extractVin(rawResponse: String?): String? {
+        if (rawResponse == null) return null
+        
+        // 1. Normalize: upper-case and trim
+        val text = rawResponse.trim().uppercase()
+        
+        // If the response explicitly states not found
+        if (text.contains("NOT_FOUND") || text.contains("NOTFOUND") || text.contains("COULD NOT FIND") || text.contains("NO VIN")) {
+            return null
+        }
+        
+        // 2. Try to find a sequence of exactly 17 alphanumeric characters [A-Z0-9] in the raw text (as a standalone word or with boundaries)
+        val standaloneRegex = Regex("\\b[A-Z0-9]{17}\\b")
+        val standaloneMatch = standaloneRegex.find(text)?.value
+        if (standaloneMatch != null) {
+            Log.d("AwdViewModel", "Found standalone 17-character VIN: $standaloneMatch")
+            return standaloneMatch
+        }
+        
+        // 3. Try to find any 17-character alphanumeric sequence [A-Z0-9] even if not bounded by word boundaries
+        val sequenceRegex = Regex("[A-Z0-9]{17}")
+        val sequenceMatch = sequenceRegex.find(text)?.value
+        if (sequenceMatch != null) {
+            Log.d("AwdViewModel", "Found 17-character alphanumeric sequence: $sequenceMatch")
+            return sequenceMatch
+        }
+
+        // 4. What if the VIN contains hyphens, spaces, or dots? (e.g. "1C4-HJXN23-KW-123456" or "1C4 HJXN23 KW 123456")
+        val words = text.split(Regex("[\\s\\n\\r]+"))
+        for (word in words) {
+            val cleanedWord = word.replace(Regex("[^A-Z0-9]"), "")
+            if (cleanedWord.length == 17) {
+                Log.d("AwdViewModel", "Found 17-character cleaned word: $cleanedWord")
+                return cleanedWord
+            }
+        }
+
+        // 5. If we still haven't found a 17-character sequence, let's strip common words and try
+        val cleanedText = text
+            .replace(Regex("VEHICLE\\s*IDENTIFICATION\\s*NUMBER:?"), "")
+            .replace(Regex("VIN\\s*CODE:?"), "")
+            .replace(Regex("VIN\\s*NUMBER:?"), "")
+            .replace(Regex("VIN\\s*IS:?"), "")
+            .replace(Regex("VIN:?"), "")
+            .replace(Regex("HERE\\s*IS\\s*THE\\s*VIN:?"), "")
+            .replace(Regex("THE\\s*VIN\\s*IS:?"), "")
+            .replace(Regex("THIS\\s*IMAGE\\s*SHOWS:?"), "")
+            .replace(Regex("[^A-Z0-9]"), "") // remove everything except letters and digits
+
+        val fallbackMatch = Regex("[A-Z0-9]{17}").find(cleanedText)?.value
+        if (fallbackMatch != null) {
+            Log.d("AwdViewModel", "Found fallback 17-character VIN: $fallbackMatch")
+            return fallbackMatch
+        }
+
+        return null
     }
 
     private suspend fun queryParkingBrakeWithGemini(year: String, make: String, model: String, vin: String): String = withContext(Dispatchers.IO) {
