@@ -101,33 +101,47 @@ fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.Center,
                         modifier = Modifier.padding(vertical = 4.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Book, // Repository icon
+                            contentDescription = null,
+                            tint = Color(0xFF8B949E),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "dynapetey",
+                            fontWeight = FontWeight.Normal,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF8B949E)
+                        )
+                        Text(
+                            text = " / ",
+                            fontWeight = FontWeight.Normal,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF8B949E)
+                        )
+                        Text(
+                            text = "Awd_Check",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
                             Text(
-                                text = "AWD Check",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "v2.4.0 • System Ready",
+                                text = "Public",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontWeight = FontWeight.Normal
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF8B949E),
+                                fontSize = 10.sp
                             )
                         }
                     }
@@ -327,57 +341,71 @@ fun ScannerInputCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Vehicle VIN Scanner",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Column {
+                Text(
+                    text = "Vehicle VIN Scanner",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Decode VIN and verify AWD/4x4 drivetrain configurations using official NHTSA data.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8B949E)
+                )
+            }
 
             // Direct Scan buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Camera Button
+                // Camera Button (GitHub Green Action style)
                 Button(
                     onClick = onScanCameraClick,
                     modifier = Modifier
                         .weight(1f)
-                        .height(54.dp)
+                        .height(48.dp)
                         .testTag("scan_camera_button"),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = Color(0xFF238636), // GitHub Green
+                        contentColor = Color.White
                     )
                 ) {
-                    Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = "Scan with Camera")
+                    Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = "Scan with Camera", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Scan VIN", fontWeight = FontWeight.SemiBold)
+                    Text("Scan VIN", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
 
-                // File Upload Button
-                OutlinedButton(
+                // File Upload Button (GitHub Secondary style)
+                Button(
                     onClick = onUploadPhotoClick,
                     modifier = Modifier
                         .weight(1f)
-                        .height(54.dp)
-                        .testTag("upload_pic_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        .height(48.dp)
+                        .testTag("upload_pic_button")
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp)),
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant, // GitHub Gray Secondary
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    Icon(imageVector = Icons.Default.UploadFile, contentDescription = "Upload Paperwork")
+                    Icon(imageVector = Icons.Default.UploadFile, contentDescription = "Upload Paperwork", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Upload Photo", fontWeight = FontWeight.SemiBold)
+                    Text("Upload Photo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
             }
 
@@ -388,28 +416,37 @@ fun ScannerInputCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
                 Text(
                     text = "OR ENTER MANUALLY",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color(0xFF8B949E),
                     modifier = Modifier.padding(horizontal = 12.dp),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
                 )
-                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
             }
 
             // Input TextField for manual 17-char VIN
             OutlinedTextField(
                 value = manualVin,
                 onValueChange = onManualVinChange,
-                label = { Text("17-Character VIN") },
-                placeholder = { Text("e.g. 1FT8W2BM0...") },
+                label = { Text("17-Character VIN", color = Color(0xFF8B949E)) },
+                placeholder = { Text("e.g. 1FT8W2BM0...", color = Color(0xFF8B949E).copy(alpha = 0.5f)) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("manual_vin_input"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(6.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, // GitHub Blue
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline, // GitHub Slate Border
+                    focusedContainerColor = MaterialTheme.colorScheme.background, // GitHub Dark Canvas
+                    unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                ),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Characters,
                     imeAction = ImeAction.Search
@@ -425,7 +462,7 @@ fun ScannerInputCard(
                 trailingIcon = {
                     if (manualVin.isNotEmpty()) {
                         IconButton(onClick = { onManualVinChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear text")
+                            Icon(Icons.Default.Clear, contentDescription = "Clear text", tint = Color(0xFF8B949E))
                         }
                     }
                 },
@@ -434,12 +471,13 @@ fun ScannerInputCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Limit: 17 alphanumeric letters", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${manualVin.length}/17", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (manualVin.length == 17) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Limit: 17 alphanumeric letters", fontSize = 11.sp, color = Color(0xFF8B949E))
+                        Text("${manualVin.length}/17", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (manualVin.length == 17) Color(0xFF3FB950) else Color(0xFF8B949E))
                     }
                 }
             )
 
+            // Submit Button (GitHub Blue Primary style)
             Button(
                 onClick = {
                     onDecodeManual()
@@ -449,11 +487,16 @@ fun ScannerInputCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
-                    .testTag("submit_manual_vin"),
-                shape = RoundedCornerShape(12.dp),
+                    .testTag("submit_manual_vin")
+                    .then(
+                        if (manualVin.length != 17) {
+                            Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                        } else Modifier
+                    ),
+                shape = RoundedCornerShape(6.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    containerColor = if (manualVin.length == 17) Color(0xFF1F6FEB) else Color(0xFF21262D).copy(alpha = 0.5f), // GitHub Blue vs Disabled Grey
+                    contentColor = if (manualVin.length == 17) Color.White else Color(0xFF8B949E).copy(alpha = 0.5f)
                 )
             ) {
                 Text("Lookup Vehicle Details", fontWeight = FontWeight.Bold)
@@ -551,6 +594,8 @@ fun ErrorCard(message: String, onDismiss: () -> Unit) {
     }
 }
 
+private data class Quint<A, B, C, D, E>(val first: A, val second: B, val third: C, val fourth: D, val fifth: E)
+
 @Composable
 fun MainResultDisplay(
     scan: VinScan,
@@ -562,45 +607,50 @@ fun MainResultDisplay(
     val isFwd = scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd")
     val isRwd = scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd")
 
-    val (badgeText, badgeColor, icon, glowBrush) = when {
+    val (badgeText, badgeBgColor, badgeBorderColor, badgeTextColor, icon) = when {
         isAwd -> {
-            Quad(
+            Quint(
                 "AWD MATCH ACTIVE",
-                Color(0xFF2E7D32), // Emerald Green
-                Icons.Rounded.CheckCircle,
-                Brush.linearGradient(listOf(Color(0xFF81C784), Color(0xFF4CAF50)))
+                Color(0xFF152219),
+                Color(0xFF3FB950),
+                Color(0xFF56D364),
+                Icons.Rounded.CheckCircle
             )
         }
         is4x4 -> {
-            Quad(
-                "4x4 WHEEL DRIVE ACTIVE",
-                Color(0xFF2E7D32), // Dark Green
-                Icons.Rounded.AllInclusive,
-                Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF1B5E20)))
+            Quint(
+                "4X4 DRIVE ACTIVE",
+                Color(0xFF152219),
+                Color(0xFF3FB950),
+                Color(0xFF56D364),
+                Icons.Rounded.AllInclusive
             )
         }
         isFwd -> {
-            Quad(
-                "FWD DRIVETRAIN detected",
-                Color(0xFF1565C0), // Intense Blue
-                Icons.Rounded.ArrowCircleUp,
-                Brush.linearGradient(listOf(Color(0xFF64B5F6), Color(0xFF1E88E5)))
+            Quint(
+                "FWD DRIVETRAIN DETECTED",
+                Color(0xFF111E2E),
+                Color(0xFF58A6FF),
+                Color(0xFF79C0FF),
+                Icons.Rounded.ArrowCircleUp
             )
         }
         isRwd -> {
-            Quad(
-                "RWD DRIVETRAIN detected",
-                Color(0xFFE65100), // Intense Orange
-                Icons.Rounded.ArrowCircleDown,
-                Brush.linearGradient(listOf(Color(0xFFFFB74D), Color(0xFFF57C00)))
+            Quint(
+                "RWD DRIVETRAIN DETECTED",
+                Color(0xFF1E152E),
+                Color(0xFF8957E5),
+                Color(0xFFD2A8FF),
+                Icons.Rounded.ArrowCircleDown
             )
         }
         else -> {
-            Quad(
-                scan.driveType.ifEmpty { "DRIVETRAIN SPEC UNKNOWN" },
-                Color(0xFF616161),
-                Icons.Rounded.Help,
-                Brush.linearGradient(listOf(Color(0xFFBDBDBD), Color(0xFF757575)))
+            Quint(
+                scan.driveType.uppercase().ifEmpty { "DRIVETRAIN SPEC UNKNOWN" },
+                Color(0xFF1F242C),
+                Color(0xFF30363D),
+                Color(0xFF8B949E),
+                Icons.Rounded.Help
             )
         }
     }
@@ -610,12 +660,12 @@ fun MainResultDisplay(
             .fillMaxWidth()
             .border(
                 BorderStroke(
-                    2.dp,
-                    if (isAwd || is4x4) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outlineVariant
+                    1.dp,
+                    if (isAwd || is4x4) Color(0xFF3FB950) else MaterialTheme.colorScheme.outline
                 ),
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(8.dp)
             ),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -630,48 +680,59 @@ fun MainResultDisplay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = titleText,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 0.5.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (isAwd || is4x4) Color(0xFF3FB950) else Color(0xFF8B949E))
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = titleText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF8B949E),
+                        letterSpacing = 0.5.sp
+                    )
+                }
                 IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close specifications card",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = Color(0xFF8B949E)
                     )
                 }
             }
 
-            // Big visual AWD Badge
+            // Big visual AWD Badge styled like GitHub status box
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(glowBrush)
-                    .padding(vertical = 20.dp, horizontal = 12.dp),
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(badgeBgColor)
+                    .border(BorderStroke(1.dp, badgeBorderColor), RoundedCornerShape(6.dp))
+                    .padding(vertical = 16.dp, horizontal = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(36.dp)
+                        tint = badgeTextColor,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = badgeText,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
+                        color = badgeTextColor,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 0.5.sp
                     )
                 }
             }
@@ -681,7 +742,7 @@ fun MainResultDisplay(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                SpecRow(label = "DRIVE SYSTEM", value = scan.driveType.ifEmpty { "N/A" }, highlighted = true, highlightColor = badgeColor)
+                SpecRow(label = "DRIVE SYSTEM", value = scan.driveType.ifEmpty { "N/A" }, highlighted = true, highlightColor = badgeTextColor)
                 SpecRow(label = "PARKING BRAKE", value = scan.parkingBrake.ifEmpty { "Unknown" }, applyBold = true)
                 SpecRow(label = "YEAR", value = scan.year.ifEmpty { "N/A" })
                 SpecRow(label = "MAKE", value = scan.make.ifEmpty { "N/A" }, applyBold = true)
@@ -694,14 +755,15 @@ fun MainResultDisplay(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Decoder Notice: ${scan.errorMsg}",
-                        color = MaterialTheme.colorScheme.error,
+                        color = Color(0xFFF85149), // GitHub Red Text
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                Color(0xFF2D191E), // GitHub Dark Red background
                                 RoundedCornerShape(6.dp)
                             )
+                            .border(1.dp, Color(0xFFF85149).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
                             .padding(8.dp)
                     )
                 }
@@ -760,7 +822,7 @@ fun HistoryItemRow(
     val isAwdOr4x4 = scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") || scan.driveType.lowercase().contains("4x4")
 
     val systemIcon = when {
-        scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") -> Icons.Rounded.DoneOutline
+        scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") -> Icons.Rounded.CheckCircle
         scan.driveType.lowercase().contains("4x4") || scan.driveType.lowercase().contains("4wd") || scan.driveType.lowercase().contains("four") -> Icons.Rounded.AllInclusive
         scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd") -> Icons.Rounded.ArrowCircleUp
         scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd") -> Icons.Rounded.ArrowCircleDown
@@ -768,11 +830,11 @@ fun HistoryItemRow(
     }
 
     val iconColor = when {
-        scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") -> Color(0xFF388E3C)
-        scan.driveType.lowercase().contains("4x4") || scan.driveType.lowercase().contains("4wd") || scan.driveType.lowercase().contains("four") -> Color(0xFF1B5E20)
-        scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd") -> Color(0xFF1976D2)
-        scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd") -> Color(0xFFE65100)
-        else -> Color.Gray
+        scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") -> Color(0xFF3FB950) // GitHub Green
+        scan.driveType.lowercase().contains("4x4") || scan.driveType.lowercase().contains("4wd") || scan.driveType.lowercase().contains("four") -> Color(0xFF3FB950)
+        scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd") -> Color(0xFF58A6FF) // GitHub Blue
+        scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd") -> Color(0xFFBC8CFF) // GitHub Purple
+        else -> Color(0xFF8B949E) // GitHub Muted Gray
     }
 
     val format = SimpleDateFormat("MMM d, yyyy - hh:mm a", Locale.getDefault())
@@ -783,13 +845,13 @@ fun HistoryItemRow(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
+                width = 1.dp,
+                color = if (isSelected) Color(0xFF58A6FF) else MaterialTheme.colorScheme.outline, // GitHub Blue vs Gray Border
+                shape = RoundedCornerShape(6.dp)
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+            containerColor = if (isSelected) Color(0xFF1F242C) else MaterialTheme.colorScheme.surface // GitHub Tinted Gray vs Surface
         )
     ) {
         Row(
@@ -798,19 +860,19 @@ fun HistoryItemRow(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon representing AWD status
+            // Icon representing AWD status (styled like a GitHub status check)
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.15f)),
+                    .background(iconColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = systemIcon,
                     contentDescription = null,
                     tint = iconColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
@@ -822,21 +884,39 @@ fun HistoryItemRow(
                     text = "${scan.year} ${scan.make} ${scan.model}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Spec: ${if (scan.driveType.isNotEmpty()) scan.driveType else "Unknown"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isAwdOr4x4) Color(0xFF56D364) else Color(0xFF8B949E), // Pass Green vs Muted
+                        fontWeight = if (isAwdOr4x4) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF8B949E)
+                    )
+                    Text(
+                        text = "VIN: ${scan.vin}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF8B949E),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
-                    text = "Spec: ${if (scan.driveType.isNotEmpty()) scan.driveType else "Unknown"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isAwdOr4x4) iconColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isAwdOr4x4) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "$formattedTime • VIN: ${scan.vin}",
+                    text = "Checked on $formattedTime",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = Color(0xFF8B949E).copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -844,16 +924,16 @@ fun HistoryItemRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Delete button
+            // Delete button (styled neutrally)
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete entry from history",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                    modifier = Modifier.size(18.dp)
+                    tint = Color(0xFFF85149).copy(alpha = 0.8f), // GitHub Danger Red
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
