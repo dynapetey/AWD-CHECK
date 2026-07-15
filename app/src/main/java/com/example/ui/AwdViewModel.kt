@@ -50,7 +50,7 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
     // API Key Source and Remote URL config
     private val sharedPrefs = application.getSharedPreferences("awd_prefs", Application.MODE_PRIVATE)
 
-    private val _apiProvider = MutableStateFlow(sharedPrefs.getString("api_provider", "ai_studio") ?: "ai_studio")
+    private val _apiProvider = MutableStateFlow(sharedPrefs.getString("api_provider", "ocr_space") ?: "ocr_space")
     val apiProvider: StateFlow<String> = _apiProvider.asStateFlow()
 
     private val _apiKeySource = MutableStateFlow(sharedPrefs.getString("api_key_source", "local") ?: "local")
@@ -73,13 +73,17 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
     private val _vertexModelName = MutableStateFlow(sharedPrefs.getString("vertex_model_name", "gemini-1.5-flash") ?: "gemini-1.5-flash")
     val vertexModelName: StateFlow<String> = _vertexModelName.asStateFlow()
 
+    private val _ocrSpaceApiKey = MutableStateFlow(sharedPrefs.getString("ocr_space_api_key", "K81505784088957") ?: "K81505784088957")
+    val ocrSpaceApiKey: StateFlow<String> = _ocrSpaceApiKey.asStateFlow()
+
     fun saveApiConfig(
         provider: String,
         source: String,
         url: String,
         projectId: String,
         region: String,
-        modelName: String
+        modelName: String,
+        ocrSpaceApiKeyVal: String
     ) {
         _apiProvider.value = provider
         _apiKeySource.value = source
@@ -87,6 +91,7 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
         _vertexProjectId.value = projectId
         _vertexRegion.value = region
         _vertexModelName.value = modelName
+        _ocrSpaceApiKey.value = ocrSpaceApiKeyVal
 
         sharedPrefs.edit()
             .putString("api_provider", provider)
@@ -95,6 +100,7 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
             .putString("vertex_project_id", projectId)
             .putString("vertex_region", region)
             .putString("vertex_model_name", modelName)
+            .putString("ocr_space_api_key", ocrSpaceApiKeyVal)
             .apply()
     }
 
@@ -225,42 +231,67 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                     bitmapToBase64(resizedBitmap)
                 }
 
-                // 2. Query Gemini/Vertex to extract VIN
-                val apiKey = getEffectiveApiKey()
-                if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-                    _uiState.value = ScanUiState.Error("Gemini API key is not configured. Please configure it in Settings (the top-right key icon) or add it to AI Studio secrets.")
-                    return@launch
-                }
+                // 2. OCR Extraction
+                val rawResponse: String?
+                if (_apiProvider.value == "ocr_space") {
+                    val ocrKey = _ocrSpaceApiKey.value.trim().ifEmpty { "helloworld" }
+                    val dataUri = "data:$mimeType;base64,$base64Image"
+                    val ocrResponse = withContext(Dispatchers.IO) {
+                        NetworkClient.ocrSpaceService.parseImage(
+                            apiKey = ocrKey,
+                            base64Image = dataUri,
+                            ocrEngine = "3",
+                            scale = true
+                        )
+                    }
+                    if (ocrResponse.isErroredOnProcessing == true) {
+                        _uiState.value = ScanUiState.Error("OCR.space Error: ${ocrResponse.errorDetails ?: "Unknown processing error"}")
+                        return@launch
+                    }
+                    val parsedText = ocrResponse.parsedResults?.firstOrNull()?.parsedText
+                    if (parsedText == null) {
+                        _uiState.value = ScanUiState.Error("OCR.space did not return any text. Please try with a clearer photo.")
+                        return@launch
+                    }
+                    rawResponse = parsedText
+                    Log.d("AwdViewModel", "Raw OCR.space response: $rawResponse")
+                } else {
+                    val apiKey = getEffectiveApiKey()
+                    if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+                        _uiState.value = ScanUiState.Error("Gemini API key is not configured. Please configure it in Settings (the top-right key icon) or add it to AI Studio secrets.")
+                        return@launch
+                    }
 
-                if (_apiProvider.value == "vertex_ai" && _vertexProjectId.value.trim().isEmpty()) {
-                    _uiState.value = ScanUiState.Error("Vertex AI Project ID is not configured. Please configure it in Settings (the top-right key icon).")
-                    return@launch
-                }
+                    if (_apiProvider.value == "vertex_ai" && _vertexProjectId.value.trim().isEmpty()) {
+                        _uiState.value = ScanUiState.Error("Vertex AI Project ID is not configured. Please configure it in Settings (the top-right key icon).")
+                        return@launch
+                    }
 
-                val prompt = "This is an image of a vehicle's dashboard VIN sticker, door pillar barcode decal, windshield printed tag, or official paperwork. " +
-                        "Extract the 17-character VIN (Vehicle Identification Number) from this image. " +
-                        "Look for alphanumeric sequence of 17 characters. " +
-                        "Return ONLY the 17-character VIN code in plain text. " +
-                        "No other text, preamble, explanations, punctuation, or spaces. If you cannot find any 17-character VIN, return 'NOT_FOUND'."
+                    val prompt = "This is an image of a vehicle's dashboard VIN sticker, door pillar barcode decal, windshield printed tag, or official paperwork. " +
+                            "Extract the 17-character VIN (Vehicle Identification Number) from this image. " +
+                            "Look for alphanumeric sequence of 17 characters. " +
+                            "Return ONLY the 17-character VIN code in plain text. " +
+                            "No other text, preamble, explanations, punctuation, or spaces. If you cannot find any 17-character VIN, return 'NOT_FOUND'."
 
-                val request = GeminiRequest(
-                    contents = listOf(
-                        GeminiContent(
-                            parts = listOf(
-                                GeminiPart(text = prompt),
-                                GeminiPart(inlineData = GeminiInlineData(mimeType = mimeType, data = base64Image))
+                    val request = GeminiRequest(
+                        contents = listOf(
+                            GeminiContent(
+                                parts = listOf(
+                                    GeminiPart(text = prompt),
+                                    GeminiPart(inlineData = GeminiInlineData(mimeType = mimeType, data = base64Image))
+                                )
                             )
                         )
                     )
-                )
 
-                val requestUrl = getGeminiRequestUrl()
-                val response = withContext(Dispatchers.IO) {
-                    NetworkClient.geminiService.generateContent(requestUrl, apiKey, request)
+                    val requestUrl = getGeminiRequestUrl()
+                    val response = withContext(Dispatchers.IO) {
+                        NetworkClient.geminiService.generateContent(requestUrl, apiKey, request)
+                    }
+
+                    rawResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                    Log.d("AwdViewModel", "Raw Gemini OCR response: $rawResponse")
                 }
-
-                val rawResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                Log.d("AwdViewModel", "Raw Gemini OCR response: $rawResponse")
 
                 val extractedVin = extractVin(rawResponse)
 

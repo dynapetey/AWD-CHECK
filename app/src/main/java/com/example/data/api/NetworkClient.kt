@@ -15,6 +15,9 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
+import retrofit2.http.Header
 import java.util.concurrent.TimeUnit
 
 // --- NHTSA API Structures ---
@@ -92,6 +95,33 @@ interface GeminiApiService {
     ): GeminiResponse
 }
 
+// --- OCR.space API Structures ---
+@JsonClass(generateAdapter = true)
+data class OcrSpaceResponse(
+    @Json(name = "ParsedResults") val parsedResults: List<OcrParsedResult>?,
+    @Json(name = "OCRExitCode") val ocrExitCode: Int?,
+    @Json(name = "IsErroredOnProcessing") val isErroredOnProcessing: Boolean?,
+    @Json(name = "ErrorDetails") val errorDetails: String?
+)
+
+@JsonClass(generateAdapter = true)
+data class OcrParsedResult(
+    @Json(name = "ParsedText") val parsedText: String?,
+    @Json(name = "FileParseExitCode") val fileParseExitCode: Int?,
+    @Json(name = "ErrorDetails") val errorDetails: String?
+)
+
+interface OcrSpaceApiService {
+    @FormUrlEncoded
+    @POST("parse/image")
+    suspend fun parseImage(
+        @Header("apikey") apiKey: String,
+        @Field("base64Image") base64Image: String,
+        @Field("OCREngine") ocrEngine: String,
+        @Field("scale") scale: Boolean
+    ): OcrSpaceResponse
+}
+
 // --- Network Clients ---
 object NetworkClient {
     private val moshi: Moshi = Moshi.Builder()
@@ -125,5 +155,14 @@ object NetworkClient {
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(GeminiApiService::class.java)
+    }
+
+    val ocrSpaceService: OcrSpaceApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.ocr.space/")
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(OcrSpaceApiService::class.java)
     }
 }

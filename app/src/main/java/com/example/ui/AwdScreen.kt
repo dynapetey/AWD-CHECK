@@ -881,6 +881,7 @@ fun ApiKeySettingsDialog(
     val vertexProjectIdState by viewModel.vertexProjectId.collectAsState()
     val vertexRegionState by viewModel.vertexRegion.collectAsState()
     val vertexModelNameState by viewModel.vertexModelName.collectAsState()
+    val ocrSpaceApiKeyState by viewModel.ocrSpaceApiKey.collectAsState()
 
     var selectedProvider by remember { mutableStateOf(provider) }
     var selectedSource by remember { mutableStateOf(source) }
@@ -888,6 +889,7 @@ fun ApiKeySettingsDialog(
     var vertexProjectId by remember { mutableStateOf(vertexProjectIdState) }
     var vertexRegion by remember { mutableStateOf(vertexRegionState) }
     var vertexModelName by remember { mutableStateOf(vertexModelNameState) }
+    var ocrSpaceApiKeyVal by remember { mutableStateOf(ocrSpaceApiKeyState) }
 
     var testResult by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
@@ -977,11 +979,39 @@ fun ApiKeySettingsDialog(
                             }
                         }
                     }
+
+                    Surface(
+                        onClick = { selectedProvider = "ocr_space" },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedProvider == "ocr_space") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedProvider == "ocr_space") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedProvider == "ocr_space",
+                                onClick = { selectedProvider = "ocr_space" }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("OCR.space", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("High-performance OCR Space Engine 3", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
                 }
 
-                // API Key Source and Options
-                Text("API Key Setup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (selectedProvider != "ocr_space") {
+                    // API Key Source and Options
+                    Text("API Key Setup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(
                         onClick = { selectedSource = "local" },
                         shape = RoundedCornerShape(12.dp),
@@ -1118,6 +1148,7 @@ fun ApiKeySettingsDialog(
                         )
                     }
                 }
+                }
 
                 // Vertex AI options section
                 if (selectedProvider == "vertex_ai") {
@@ -1154,6 +1185,27 @@ fun ApiKeySettingsDialog(
                         shape = RoundedCornerShape(12.dp)
                     )
                 }
+
+                // OCR.space parameters section
+                if (selectedProvider == "ocr_space") {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Text("OCR.space Parameters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    
+                    OutlinedTextField(
+                        value = ocrSpaceApiKeyVal,
+                        onValueChange = { ocrSpaceApiKeyVal = it },
+                        label = { Text("OCR.space API Key") },
+                        placeholder = { Text("helloworld") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("ocr_space_api_key_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Text(
+                        text = "Set to 'helloworld' (default) or register your free/PRO key at ocr.space. Uses OCR Engine 3 for optimal performance.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1165,7 +1217,8 @@ fun ApiKeySettingsDialog(
                         url = inputUrl,
                         projectId = vertexProjectId,
                         region = vertexRegion,
-                        modelName = vertexModelName
+                        modelName = vertexModelName,
+                        ocrSpaceApiKeyVal = ocrSpaceApiKeyVal
                     )
                     onDismiss()
                 },
