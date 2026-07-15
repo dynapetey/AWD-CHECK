@@ -1,7 +1,6 @@
 package com.example.ui
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,18 +11,11 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.*
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -37,44 +29,36 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.example.data.VinScan
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
-import java.text.SimpleDateFormat
-import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
-    val history by viewModel.history.collectAsState()
     val selectedScan by viewModel.selectedScan.collectAsState()
 
-    val context = LocalContext.current
-    var manualVin by remember { mutableStateOf("") }
     var showCameraScanner by remember { mutableStateOf(false) }
+    var showApiKeyDialog by remember { mutableStateOf(false) }
 
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+    val context = LocalContext.current
 
     // Gallery Picker launcher
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -92,679 +76,491 @@ fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Book, // Repository icon
-                            contentDescription = null,
-                            tint = Color(0xFF8B949E),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "dynapetey",
-                            fontWeight = FontWeight.Normal,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF8B949E)
-                        )
-                        Text(
-                            text = " / ",
-                            fontWeight = FontWeight.Normal,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF8B949E)
-                        )
-                        Text(
-                            text = "Awd_Check",
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Public",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF8B949E),
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
+    Box(
         modifier = modifier
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 1. Scanning and manual input card
-                item {
-                    ScannerInputCard(
-                        manualVin = manualVin,
-                        onManualVinChange = {
-                            if (it.length <= 17) manualVin = it.uppercase()
-                        },
-                        onDecodeManual = {
-                            viewModel.decodeManualVin(manualVin)
-                            manualVin = ""
-                        },
-                        onScanCameraClick = {
-                            if (cameraPermissionState.status.isGranted) {
-                                showCameraScanner = true
-                            } else {
-                                cameraPermissionState.launchPermissionRequest()
-                            }
-                        },
-                        onUploadPhotoClick = {
-                            galleryLauncher.launch("image/*")
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when {
+            // 1. Loading State (corresponds to provider.isLoading in Flutter)
+            uiState is ScanUiState.ExtractingVin || uiState is ScanUiState.DecodingVin -> {
+                LoadingScreen()
+            }
+            // 2. Active scan or selected vehicle details (corresponds to provider.vehicleData != null)
+            selectedScan != null -> {
+                VehicleInfoScreen(
+                    scan = selectedScan!!,
+                    onBack = { viewModel.selectScan(null) }
+                )
+            }
+            // 3. Main/Home dashboard (corresponds to _buildMainScreen in Flutter)
+            else -> {
+                val errorMsg = if (uiState is ScanUiState.Error) (uiState as ScanUiState.Error).message else null
+                HomeScreenContent(
+                    errorMessage = errorMsg,
+                    onScanClick = {
+                        if (cameraPermissionState.status.isGranted) {
+                            showCameraScanner = true
+                        } else {
+                            cameraPermissionState.launchPermissionRequest()
                         }
-                    )
-                }
-
-                // 2. Active loading states or scan results
-                item {
-                    AnimatedVisibility(
-                        visible = uiState !is ScanUiState.Idle,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        when (uiState) {
-                            is ScanUiState.ExtractingVin -> {
-                                LoadingCard("Extracting VIN...", "Analyzing image with Gemini AI")
-                            }
-                            is ScanUiState.DecodingVin -> {
-                                LoadingCard("Decoding Technical Specifications...", "Retrieving vehicle drive configuration from NHTSA database")
-                            }
-                            is ScanUiState.Success -> {
-                                // Handled in selected detail pane or card
-                                val scan = (uiState as ScanUiState.Success).scan
-                                MainResultDisplay(scan = scan, onDismiss = { viewModel.resetState() })
-                            }
-                            is ScanUiState.Error -> {
-                                val errorMsg = (uiState as ScanUiState.Error).message
-                                ErrorCard(message = errorMsg, onDismiss = { viewModel.resetState() })
-                            }
-                            else -> {}
-                        }
+                    },
+                    onSettingsClick = {
+                        showApiKeyDialog = true
                     }
-                }
-
-                // 3. Selection Details display (from history list clicks)
-                if (selectedScan != null && uiState !is ScanUiState.Success) {
-                    item {
-                        MainResultDisplay(
-                            scan = selectedScan!!,
-                            titleText = "Selected Vehicle Spec",
-                            onDismiss = { viewModel.selectScan(null) }
-                        )
-                    }
-                }
-
-                // 4. History log section header
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.History,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Scan History",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        if (history.isNotEmpty()) {
-                            TextButton(
-                                onClick = { viewModel.clearHistory() },
-                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                            ) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = "Clear all scans", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Clear All", fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-
-                // Empty state for History
-                if (history.isEmpty()) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "No scan records found",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Camera-scan or search vehicle VIN above to begin",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-
-                // Render history items list
-                items(history) { scan ->
-                    HistoryItemRow(
-                        scan = scan,
-                        isSelected = scan.id == selectedScan?.id,
-                        onClick = {
-                            viewModel.selectScan(scan)
-                            // Clean scanning phase so detail view doesn't conflict
-                            viewModel.resetState()
-                        },
-                        onDelete = { viewModel.deleteScan(scan) }
-                    )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(30.dp))
-                }
+                )
             }
         }
-    }
 
-    // Camera Scan Full View Mock / Engine Integration dialog
-    if (showCameraScanner) {
-        CameraScannerDialog(
-            onDismiss = { showCameraScanner = false },
-            onImageCaptured = { file ->
-                showCameraScanner = false
-                val stream = FileInputStream(file)
-                viewModel.processImage(stream)
-            }
-        )
-    }
-}
-
-@Composable
-fun ScannerInputCard(
-    manualVin: String,
-    onManualVinChange: (String) -> Unit,
-    onDecodeManual: () -> Unit,
-    onScanCameraClick: () -> Unit,
-    onUploadPhotoClick: () -> Unit
-) {
-    val focusManager = LocalFocusManager.current
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column {
-                Text(
-                    text = "Vehicle VIN Scanner",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Decode VIN and verify AWD/4x4 drivetrain configurations using official NHTSA data.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8B949E)
-                )
-            }
-
-            // Direct Scan buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Camera Button (GitHub Green Action style)
-                Button(
-                    onClick = onScanCameraClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("scan_camera_button"),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF238636), // GitHub Green
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = "Scan with Camera", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Scan VIN", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                }
-
-                // File Upload Button (GitHub Secondary style)
-                Button(
-                    onClick = onUploadPhotoClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("upload_pic_button")
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp)),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant, // GitHub Gray Secondary
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    Icon(imageVector = Icons.Default.UploadFile, contentDescription = "Upload Paperwork", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Upload Photo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Divider or text "OR ENTER MANUALLY"
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
-                Text(
-                    text = "OR ENTER MANUALLY",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF8B949E),
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp
-                )
-                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
-            }
-
-            // Input TextField for manual 17-char VIN
-            OutlinedTextField(
-                value = manualVin,
-                onValueChange = onManualVinChange,
-                label = { Text("17-Character VIN", color = Color(0xFF8B949E)) },
-                placeholder = { Text("e.g. 1FT8W2BM0...", color = Color(0xFF8B949E).copy(alpha = 0.5f)) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("manual_vin_input"),
-                shape = RoundedCornerShape(6.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary, // GitHub Blue
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline, // GitHub Slate Border
-                    focusedContainerColor = MaterialTheme.colorScheme.background, // GitHub Dark Canvas
-                    unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                ),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    imeAction = ImeAction.Search
-                ),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        if (manualVin.length == 17) {
-                            onDecodeManual()
-                            focusManager.clearFocus()
-                        }
-                    }
-                ),
-                trailingIcon = {
-                    if (manualVin.isNotEmpty()) {
-                        IconButton(onClick = { onManualVinChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear text", tint = Color(0xFF8B949E))
-                        }
-                    }
+        // Camera Scanner full-screen view
+        if (showCameraScanner) {
+            CameraScannerScreen(
+                onDismiss = { showCameraScanner = false },
+                onImageCaptured = { file ->
+                    showCameraScanner = false
+                    val stream = FileInputStream(file)
+                    viewModel.processImage(stream)
                 },
-                supportingText = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Limit: 17 alphanumeric letters", fontSize = 11.sp, color = Color(0xFF8B949E))
-                        Text("${manualVin.length}/17", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (manualVin.length == 17) Color(0xFF3FB950) else Color(0xFF8B949E))
-                    }
+                onManualVinEntered = { vin ->
+                    showCameraScanner = false
+                    viewModel.decodeManualVin(vin)
+                },
+                onGalleryClick = {
+                    showCameraScanner = false
+                    galleryLauncher.launch("image/*")
                 }
             )
+        }
 
-            // Submit Button (GitHub Blue Primary style)
-            Button(
-                onClick = {
-                    onDecodeManual()
-                    focusManager.clearFocus()
-                },
-                enabled = manualVin.length == 17,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("submit_manual_vin")
-                    .then(
-                        if (manualVin.length != 17) {
-                            Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                        } else Modifier
-                    ),
-                shape = RoundedCornerShape(6.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (manualVin.length == 17) Color(0xFF1F6FEB) else Color(0xFF21262D).copy(alpha = 0.5f), // GitHub Blue vs Disabled Grey
-                    contentColor = if (manualVin.length == 17) Color.White else Color(0xFF8B949E).copy(alpha = 0.5f)
-                )
-            ) {
-                Text("Lookup Vehicle Details", fontWeight = FontWeight.Bold)
-            }
+        // API Configuration Settings popup
+        if (showApiKeyDialog) {
+            ApiKeySettingsDialog(
+                viewModel = viewModel,
+                onDismiss = { showApiKeyDialog = false }
+            )
         }
     }
 }
 
 @Composable
-fun LoadingCard(title: String, subtitle: String) {
-    Card(
+fun LoadingScreen() {
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-        )
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1A1A1A), Color(0xFF000000))
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             CircularProgressIndicator(
-                modifier = Modifier.size(44.dp),
-                strokeWidth = 4.dp,
-                color = MaterialTheme.colorScheme.primary
+                color = Color(0xFFE50914),
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 4.dp
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                text = "SCANNING VIN...",
+                style = TextStyle(
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    letterSpacing = 2.sp
+                )
             )
         }
     }
 }
 
 @Composable
-fun ErrorCard(message: String, onDismiss: () -> Unit) {
+fun HomeScreenContent(
+    errorMessage: String?,
+    onScanClick: () -> Unit,
+    onSettingsClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1A1A1A), Color(0xFF000000))
+                )
+            )
+    ) {
+        // Subtle Gear Settings button in top right
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(16.dp)
+                .testTag("settings_button")
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Settings,
+                contentDescription = "Configure API",
+                tint = Color(0xFFE50914),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .statusBarsPadding()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Header Section
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.DirectionsCar,
+                    contentDescription = null,
+                    tint = Color(0xFFE50914),
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "AWD CHECK",
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 4.sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .height(2.dp)
+                        .width(40.dp)
+                        .background(Color(0xFFE50914))
+                )
+            }
+
+            // Error Display & Scan Button Section
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage,
+                            style = TextStyle(
+                                color = Color(0xFFE50914),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            ),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Large circular scanning button
+                    Box(
+                        modifier = Modifier
+                            .size(200.dp)
+                            .border(
+                                width = 2.dp,
+                                color = Color(0xFFE50914).copy(alpha = 0.5f),
+                                shape = CircleShape
+                            )
+                            .clickable(onClick = onScanClick)
+                            .testTag("scan_camera_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CameraAlt,
+                                contentDescription = "Camera",
+                                tint = Color.White,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "SCAN VIN",
+                                style = TextStyle(
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 2.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Footer Section
+            Text(
+                text = "Scan vehicle VIN to check AWD status",
+                style = TextStyle(
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    letterSpacing = 1.sp
+                ),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun VehicleInfoScreen(
+    scan: VinScan,
+    onBack: () -> Unit
+) {
+    val isAwdOr4x4 = scan.driveType.lowercase().contains("all") ||
+            scan.driveType.lowercase().contains("awd") ||
+            scan.driveType.lowercase().contains("4x4") ||
+            scan.driveType.lowercase().contains("4wd") ||
+            scan.driveType.lowercase().contains("four-wheel") ||
+            scan.driveType.lowercase().contains("four wheel")
+
+    val statusColor = if (isAwdOr4x4) Color(0xFF69F0AE) else Color(0xFFE50914)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1A1A1A), Color(0xFF000000))
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 32.dp)
+        ) {
+            // Header back button + status section
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Back Arrow Button
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFFE50914),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(top = 40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isAwdOr4x4) Icons.Rounded.CheckCircleOutline else Icons.Rounded.Cancel,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(80.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "AWD STATUS",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 2.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Equipped/Not Equipped Pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(statusColor.copy(alpha = 0.15f))
+                            .border(
+                                width = 1.dp,
+                                color = statusColor.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = if (isAwdOr4x4) "EQUIPPED" else "NOT EQUIPPED",
+                            style = TextStyle(
+                                color = statusColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                letterSpacing = 1.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Specs Detail Tables
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // VEHICLE DETAILS
+                Column {
+                    InfoSectionHeader(title = "VEHICLE DETAILS")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    InfoCard(
+                        items = listOf(
+                            InfoItem(Icons.Rounded.Fingerprint, "VIN", scan.vin),
+                            InfoItem(Icons.Rounded.DirectionsCar, "Make", scan.make.ifEmpty { "N/A" }),
+                            InfoItem(Icons.Rounded.Build, "Model", scan.model.ifEmpty { "N/A" }),
+                            InfoItem(Icons.Rounded.Layers, "Trim", scan.bodyClass.ifEmpty { "N/A" }),
+                            InfoItem(Icons.Rounded.CalendarToday, "Year", scan.year.ifEmpty { "N/A" })
+                        )
+                    )
+                }
+
+                // DRIVETRAIN SPECS
+                Column {
+                    InfoSectionHeader(title = "DRIVETRAIN SPECS")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    InfoCard(
+                        items = listOf(
+                            InfoItem(Icons.Rounded.SettingsInputComponent, "Drive Type", scan.driveType.ifEmpty { "N/A" }),
+                            InfoItem(Icons.Rounded.AllInclusive, "AWD System", if (isAwdOr4x4) "Detected" else "Not Detected"),
+                            InfoItem(Icons.Rounded.LocalParking, "Electric Parking Brake", scan.parkingBrake.ifEmpty { "N/A" })
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Scan another VIN action button
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Button(
+                        onClick = onBack,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE50914),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(56.dp)
+                            .widthIn(min = 220.dp)
+                            .testTag("scan_another_button"),
+                        shape = RoundedCornerShape(30.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.QrCodeScanner,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "SCAN ANOTHER VIN",
+                                style = TextStyle(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    letterSpacing = 1.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoSectionHeader(title: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(20.dp)
+                .background(Color(0xFFE50914))
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = TextStyle(
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                fontSize = 14.sp,
+                letterSpacing = 1.5.sp
+            )
+        )
+    }
+}
+
+data class InfoItem(
+    val icon: ImageVector,
+    val label: String,
+    val value: String
+)
+
+@Composable
+fun InfoCard(items: List<InfoItem>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+            containerColor = Color(0xFF1A1A1A)
+        ),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Error,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-                Text(
-                    text = "Scan Failed",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss error",
-                        tint = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            }
-
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-        }
-    }
-}
-
-private data class Quint<A, B, C, D, E>(val first: A, val second: B, val third: C, val fourth: D, val fifth: E)
-
-@Composable
-fun MainResultDisplay(
-    scan: VinScan,
-    titleText: String = "Vehicle Search Result",
-    onDismiss: () -> Unit
-) {
-    val isAwd = scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd")
-    val is4x4 = scan.driveType.lowercase().contains("4x4") || scan.driveType.lowercase().contains("four-wheel") || scan.driveType.lowercase().contains("4wd")
-    val isFwd = scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd")
-    val isRwd = scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd")
-
-    val (badgeText, badgeBgColor, badgeBorderColor, badgeTextColor, icon) = when {
-        isAwd -> {
-            Quint(
-                "AWD MATCH ACTIVE",
-                Color(0xFF152219),
-                Color(0xFF3FB950),
-                Color(0xFF56D364),
-                Icons.Rounded.CheckCircle
-            )
-        }
-        is4x4 -> {
-            Quint(
-                "4X4 DRIVE ACTIVE",
-                Color(0xFF152219),
-                Color(0xFF3FB950),
-                Color(0xFF56D364),
-                Icons.Rounded.AllInclusive
-            )
-        }
-        isFwd -> {
-            Quint(
-                "FWD DRIVETRAIN DETECTED",
-                Color(0xFF111E2E),
-                Color(0xFF58A6FF),
-                Color(0xFF79C0FF),
-                Icons.Rounded.ArrowCircleUp
-            )
-        }
-        isRwd -> {
-            Quint(
-                "RWD DRIVETRAIN DETECTED",
-                Color(0xFF1E152E),
-                Color(0xFF8957E5),
-                Color(0xFFD2A8FF),
-                Icons.Rounded.ArrowCircleDown
-            )
-        }
-        else -> {
-            Quint(
-                scan.driveType.uppercase().ifEmpty { "DRIVETRAIN SPEC UNKNOWN" },
-                Color(0xFF1F242C),
-                Color(0xFF30363D),
-                Color(0xFF8B949E),
-                Icons.Rounded.Help
-            )
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                BorderStroke(
-                    1.dp,
-                    if (isAwd || is4x4) Color(0xFF3FB950) else MaterialTheme.colorScheme.outline
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Header row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (isAwd || is4x4) Color(0xFF3FB950) else Color(0xFF8B949E))
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = titleText,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8B949E),
-                        letterSpacing = 0.5.sp
-                    )
-                }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close specifications card",
-                        tint = Color(0xFF8B949E)
-                    )
-                }
-            }
-
-            // Big visual AWD Badge styled like GitHub status box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(badgeBgColor)
-                    .border(BorderStroke(1.dp, badgeBorderColor), RoundedCornerShape(6.dp))
-                    .padding(vertical = 16.dp, horizontal = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = badgeTextColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = badgeText,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = badgeTextColor,
-                        textAlign = TextAlign.Center,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            }
-
-            // Specifications detailed Grid
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SpecRow(label = "DRIVE SYSTEM", value = scan.driveType.ifEmpty { "N/A" }, highlighted = true, highlightColor = badgeTextColor)
-                SpecRow(label = "PARKING BRAKE", value = scan.parkingBrake.ifEmpty { "Unknown" }, applyBold = true)
-                SpecRow(label = "YEAR", value = scan.year.ifEmpty { "N/A" })
-                SpecRow(label = "MAKE", value = scan.make.ifEmpty { "N/A" }, applyBold = true)
-                SpecRow(label = "MODEL", value = scan.model.ifEmpty { "N/A" }, applyBold = true)
-                SpecRow(label = "BODY CLASS", value = scan.bodyClass.ifEmpty { "N/A" })
-                SpecRow(label = "VEHICLE TYPE", value = scan.vehicleType.ifEmpty { "N/A" })
-                SpecRow(label = "VEHICLE VIN", value = scan.vin, italicValue = true)
-
-                if (!scan.isClean && !scan.errorMsg.isNullOrEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Decoder Notice: ${scan.errorMsg}",
-                        color = Color(0xFFF85149), // GitHub Red Text
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Color(0xFF2D191E), // GitHub Dark Red background
-                                RoundedCornerShape(6.dp)
-                            )
-                            .border(1.dp, Color(0xFFF85149).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                            .padding(8.dp)
+            items.forEachIndexed { index, item ->
+                InfoRow(item = item)
+                if (index < items.lastIndex) {
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.05f),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
             }
@@ -772,179 +568,61 @@ fun MainResultDisplay(
     }
 }
 
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
-
 @Composable
-fun SpecRow(
-    label: String,
-    value: String,
-    highlighted: Boolean = false,
-    highlightColor: Color = Color.Unspecified,
-    applyBold: Boolean = false,
-    italicValue: Boolean = false
-) {
+fun InfoRow(item: InfoItem) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (highlighted) highlightColor else MaterialTheme.colorScheme.onSurface,
-            fontWeight = if (highlighted || applyBold) FontWeight.Black else FontWeight.Normal,
-            fontStyle = if (italicValue) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1.5f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f))
-}
-
-@Composable
-fun HistoryItemRow(
-    scan: VinScan,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val isAwdOr4x4 = scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") || scan.driveType.lowercase().contains("4x4")
-
-    val systemIcon = when {
-        scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") -> Icons.Rounded.CheckCircle
-        scan.driveType.lowercase().contains("4x4") || scan.driveType.lowercase().contains("4wd") || scan.driveType.lowercase().contains("four") -> Icons.Rounded.AllInclusive
-        scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd") -> Icons.Rounded.ArrowCircleUp
-        scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd") -> Icons.Rounded.ArrowCircleDown
-        else -> Icons.Rounded.Help
-    }
-
-    val iconColor = when {
-        scan.driveType.lowercase().contains("all") || scan.driveType.lowercase().contains("awd") -> Color(0xFF3FB950) // GitHub Green
-        scan.driveType.lowercase().contains("4x4") || scan.driveType.lowercase().contains("4wd") || scan.driveType.lowercase().contains("four") -> Color(0xFF3FB950)
-        scan.driveType.lowercase().contains("front") || scan.driveType.lowercase().contains("fwd") -> Color(0xFF58A6FF) // GitHub Blue
-        scan.driveType.lowercase().contains("rear") || scan.driveType.lowercase().contains("rwd") -> Color(0xFFBC8CFF) // GitHub Purple
-        else -> Color(0xFF8B949E) // GitHub Muted Gray
-    }
-
-    val format = SimpleDateFormat("MMM d, yyyy - hh:mm a", Locale.getDefault())
-    val formattedTime = format.format(Date(scan.timestamp))
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .border(
-                width = 1.dp,
-                color = if (isSelected) Color(0xFF58A6FF) else MaterialTheme.colorScheme.outline, // GitHub Blue vs Gray Border
-                shape = RoundedCornerShape(6.dp)
-            ),
-        shape = RoundedCornerShape(6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF1F242C) else MaterialTheme.colorScheme.surface // GitHub Tinted Gray vs Surface
-        )
-    ) {
-        Row(
+        // Red Icon with circular background
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.05f)),
+            contentAlignment = Alignment.Center
         ) {
-            // Icon representing AWD status (styled like a GitHub status check)
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = systemIcon,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            Icon(
+                imageVector = item.icon,
+                contentDescription = null,
+                tint = Color(0xFFE50914),
+                modifier = Modifier.size(20.dp)
+            )
+        }
 
-            Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
-            // Text specs
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${scan.year} ${scan.make} ${scan.model}",
-                    style = MaterialTheme.typography.bodyMedium,
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = item.label.uppercase(),
+                style = TextStyle(
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    letterSpacing = 1.sp
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "Spec: ${if (scan.driveType.isNotEmpty()) scan.driveType else "Unknown"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isAwdOr4x4) Color(0xFF56D364) else Color(0xFF8B949E), // Pass Green vs Muted
-                        fontWeight = if (isAwdOr4x4) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8B949E)
-                    )
-                    Text(
-                        text = "VIN: ${scan.vin}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF8B949E),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Text(
-                    text = "Checked on $formattedTime",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF8B949E).copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = item.value,
+                style = TextStyle(
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Delete button (styled neutrally)
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete entry from history",
-                    tint = Color(0xFFF85149).copy(alpha = 0.8f), // GitHub Danger Red
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+            )
         }
     }
 }
 
-// CameraX View Dialog to provide a zero-mock, real hardware integration!
 @Composable
-fun CameraScannerDialog(
+fun CameraScannerScreen(
     onDismiss: () -> Unit,
-    onImageCaptured: (File) -> Unit
+    onImageCaptured: (File) -> Unit,
+    onManualVinEntered: (String) -> Unit,
+    onGalleryClick: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -959,6 +637,7 @@ fun CameraScannerDialog(
     }
 
     val previewView = remember { PreviewView(context) }
+    var vinText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -990,79 +669,164 @@ fun CameraScannerDialog(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
     ) {
+        // CameraX Preview View
+        AndroidView(
+            factory = { previewView },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Target viewport frame guide
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
+                .size(width = 300.dp, height = 90.dp)
+                .border(BorderStroke(2.dp, Color.Green), RoundedCornerShape(8.dp))
+                .align(Alignment.Center)
         ) {
-            // Camera Preview Frame
-            AndroidView(
-                factory = { previewView },
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Outer target overlay bounds
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                // Header action bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                    Text(
-                        text = "ALIGN VEHICLE VIN",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                    .background(Color.Green.copy(alpha = 0.05f))
+            )
+        }
 
-                // Scanning viewfinder guide target frame
-                Box(
-                    modifier = Modifier
-                        .size(width = 300.dp, height = 90.dp)
-                        .border(BorderStroke(2.dp, Color.Green), RoundedCornerShape(8.dp))
-                        .align(Alignment.Center)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Green.copy(alpha = 0.05f))
-                    )
-                }
+        // Align guidelines text helper
+        Text(
+            text = "Place VIN sticker inside green box. Avoid shadows & angles.",
+            color = Color.White,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(top = 120.dp)
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        )
 
-                Text(
-                    text = "Place VIN sticker inside green box. Avoid shadows & angles.",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(top = 110.dp)
-                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
+        // Custom Top Navigation Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .background(Color(0xFF1A1A1A))
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFFE50914)
                 )
+            }
+            Text(
+                text = "CAPTURE VIN",
+                style = TextStyle(
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    letterSpacing = 2.sp
+                ),
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
 
-                // Capture snapshot trigger
+        // Overlayed Text Input + Dual Floating Action Triggers at bottom
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // "Scan or type VIN" Input Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = null,
+                        tint = Color(0xFFE50914),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BasicTextField(
+                        value = vinText,
+                        onValueChange = {
+                            if (it.length <= 17) vinText = it.uppercase()
+                        },
+                        textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
+                        singleLine = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("manual_vin_input"),
+                        decorationBox = { innerTextField ->
+                            if (vinText.isEmpty()) {
+                                Text(
+                                    text = "Scan or type VIN",
+                                    style = TextStyle(color = Color.Gray, fontSize = 18.sp)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                    if (vinText.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                if (vinText.trim().length == 17) {
+                                    onManualVinEntered(vinText.trim())
+                                }
+                            },
+                            modifier = Modifier.testTag("submit_manual_vin")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = "Accept",
+                                tint = Color.Green,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Dual Action buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Photo library picker
+                FloatingActionButton(
+                    onClick = onGalleryClick,
+                    containerColor = Color(0xFF1A1A1A),
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .testTag("upload_pic_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PhotoLibrary,
+                        contentDescription = "Upload from Gallery"
+                    )
+                }
+
+                // Main shutter shutter capture
                 FloatingActionButton(
                     onClick = {
                         val photoFile = File(
@@ -1086,18 +850,337 @@ fun CameraScannerDialog(
                             }
                         )
                     },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 32.dp)
-                        .size(64.dp)
-                        .testTag("camera_capture_trigger"),
+                    containerColor = Color(0xFFE50914),
+                    contentColor = Color.White,
                     shape = CircleShape,
-                    containerColor = Color.White,
-                    contentColor = Color.Black
+                    modifier = Modifier
+                        .size(68.dp)
+                        .testTag("camera_capture_trigger")
                 ) {
-                    Icon(imageVector = Icons.Default.Camera, contentDescription = "Capture Snap", modifier = Modifier.size(28.dp))
+                    Icon(
+                        imageVector = Icons.Rounded.CameraAlt,
+                        contentDescription = "Capture Photo",
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ApiKeySettingsDialog(
+    viewModel: AwdViewModel,
+    onDismiss: () -> Unit
+) {
+    val provider by viewModel.apiProvider.collectAsState()
+    val source by viewModel.apiKeySource.collectAsState()
+    val remoteUrl by viewModel.remoteApiKeyUrl.collectAsState()
+    val cachedKey by viewModel.cachedRemoteApiKey.collectAsState()
+    val vertexProjectIdState by viewModel.vertexProjectId.collectAsState()
+    val vertexRegionState by viewModel.vertexRegion.collectAsState()
+    val vertexModelNameState by viewModel.vertexModelName.collectAsState()
+
+    var selectedProvider by remember { mutableStateOf(provider) }
+    var selectedSource by remember { mutableStateOf(source) }
+    var inputUrl by remember { mutableStateOf(remoteUrl) }
+    var vertexProjectId by remember { mutableStateOf(vertexProjectIdState) }
+    var vertexRegion by remember { mutableStateOf(vertexRegionState) }
+    var vertexModelName by remember { mutableStateOf(vertexModelNameState) }
+
+    var testResult by remember { mutableStateOf<String?>(null) }
+    var testing by remember { mutableStateOf(false) }
+    
+    val coroutineScope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("API Configuration", style = MaterialTheme.typography.titleLarge)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Configure the API service provider and authentication setup for VIN scanner OCR and details extraction.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Service Provider Radio Group
+                Text("API Provider / Service", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        onClick = { selectedProvider = "ai_studio" },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedProvider == "ai_studio") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedProvider == "ai_studio") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedProvider == "ai_studio",
+                                onClick = { selectedProvider = "ai_studio" }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Google AI Studio", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("Standard Gemini API endpoint (default)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Surface(
+                        onClick = { selectedProvider = "vertex_ai" },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedProvider == "vertex_ai") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedProvider == "vertex_ai") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedProvider == "vertex_ai",
+                                onClick = { selectedProvider = "vertex_ai" }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Google Cloud Vertex AI", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("Enterprise-grade Vertex AI endpoint", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                // API Key Source and Options
+                Text("API Key Setup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        onClick = { selectedSource = "local" },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedSource == "local") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedSource == "local") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedSource == "local",
+                                onClick = { selectedSource = "local" }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Local API Key", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("Uses BuildConfig.GEMINI_API_KEY from Secrets panel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Surface(
+                        onClick = { selectedSource = "remote" },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedSource == "remote") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (selectedSource == "remote") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedSource == "remote",
+                                onClick = { selectedSource = "remote" }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Remote URL", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("Loads key dynamically from an online text URL", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                if (selectedSource == "remote") {
+                    OutlinedTextField(
+                        value = inputUrl,
+                        onValueChange = { inputUrl = it },
+                        label = { Text("Remote Plain-text Key URL") },
+                        placeholder = { Text("https://example.com/api_key.txt") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("remote_url_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    // Test URL Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                testing = true
+                                testResult = null
+                                coroutineScope.launch {
+                                    val result = viewModel.testRemoteUrl(inputUrl)
+                                    testing = false
+                                    if (result.isSuccess) {
+                                        val key = result.getOrThrow()
+                                        testResult = if (key.length >= 6) {
+                                            "Success! Fetched key prefix: ${key.take(6)}..."
+                                        } else {
+                                            "Success! Fetched key length: ${key.length}"
+                                        }
+                                    } else {
+                                        testResult = "Error: ${result.exceptionOrNull()?.message}"
+                                    }
+                                }
+                            },
+                            enabled = !testing && inputUrl.trim().isNotEmpty(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ),
+                            modifier = Modifier.testTag("test_remote_url_button")
+                        ) {
+                            if (testing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Testing...")
+                            } else {
+                                Text("Test & Fetch")
+                            }
+                        }
+                    }
+
+                    testResult?.let { msg ->
+                        Text(
+                            text = msg,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (msg.startsWith("Success")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (msg.startsWith("Success")) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                    else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                                    RoundedCornerShape(8.dp)
+                               )
+                                .padding(8.dp)
+                        )
+                    }
+
+                    if (cachedKey.isNotEmpty()) {
+                        Text(
+                            text = "Cached Key Prefix: ${if (cachedKey.length >= 6) cachedKey.take(6) + "..." else "Available"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+
+                // Vertex AI options section
+                if (selectedProvider == "vertex_ai") {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Text("Vertex AI Parameters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    
+                    OutlinedTextField(
+                        value = vertexProjectId,
+                        onValueChange = { vertexProjectId = it },
+                        label = { Text("Google Cloud Project ID") },
+                        placeholder = { Text("my-gcp-project-1234") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("vertex_project_id_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = vertexRegion,
+                        onValueChange = { vertexRegion = it },
+                        label = { Text("Location / Region") },
+                        placeholder = { Text("us-central1") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("vertex_region_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = vertexModelName,
+                        onValueChange = { vertexModelName = it },
+                        label = { Text("Model Name") },
+                        placeholder = { Text("gemini-1.5-flash") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("vertex_model_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    viewModel.saveApiConfig(
+                        provider = selectedProvider,
+                        source = selectedSource,
+                        url = inputUrl,
+                        projectId = vertexProjectId,
+                        region = vertexRegion,
+                        modelName = vertexModelName
+                    )
+                    onDismiss()
+                },
+                modifier = Modifier.testTag("save_api_key_config_button")
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("cancel_api_key_config_button")
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }

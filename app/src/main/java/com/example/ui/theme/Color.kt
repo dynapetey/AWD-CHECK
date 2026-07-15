@@ -10,20 +10,20 @@ val Purple40 = Color(0xFF6650a4)
 val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
-// GitHub Dark color palette - GitHub.com theme
-val GitHubBackground = Color(0xFF0D1117)        // GitHub Deep Dark Blue-Grey Canvas
-val GitHubSurface = Color(0xFF161B22)           // GitHub Card/Box Surface
-val GitHubSurfaceVariant = Color(0xFF21262D)    // GitHub Inner/Header Gray
-val GitHubPrimary = Color(0xFF58A6FF)           // GitHub Accent Blue
-val GitHubOnPrimary = Color(0xFFFFFFFF)         // White
-val GitHubOnBackground = Color(0xFFC9D1D9)      // GitHub Silver-Grey Text
-val GitHubOnSurface = Color(0xFFC9D1D9)         // GitHub Silver-Grey Text
-val GitHubOnSurfaceVariant = Color(0xFF8B949E)   // GitHub Muted/Description Grey Text
-val GitHubSecondary = Color(0xFF30363D)         // GitHub Border/Outline Grey
-val GitHubSecondaryContainer = Color(0xFF21262D) // GitHub Gray Secondary Container
-val GitHubOnSecondaryContainer = Color(0xFFC9D1D9) // White/Silver Accent
-val GitHubOutline = Color(0xFF30363D)           // GitHub Dark Grey Outline
-val GitHubSuccess = Color(0xFF2EA44F)           // GitHub PR/Action Green
-val GitHubButtonGreen = Color(0xFF238636)       // GitHub Success Green Button
-val GitHubPurple = Color(0xFF8957E5)            // GitHub Merged PR Purple
+// Elegant Dark color palette - High-Performance Tuning & AWD Crimson theme
+val ElegantBackground = Color(0xFF0C0C0E)        // Deep Midnight Obsidian / Carbon Black
+val ElegantSurface = Color(0xFF161719)           // Technical Slate Carbon Gray
+val ElegantSurfaceVariant = Color(0xFF1F2023)    // Asphalt Charcoal Grey
+val ElegantPrimary = Color(0xFFE50914)           // High-Performance Tuning Crimson Red
+val ElegantOnPrimary = Color(0xFFFFFFFF)         // Bright White for extreme readability
+val ElegantOnBackground = Color(0xFFF5F5F7)      // Ice Silver for clear readouts
+val ElegantOnSurface = Color(0xFFF5F5F7)
+val ElegantOnSurfaceVariant = Color(0xFFB0BEC5)   // Light Aluminum Silver for subtext
+val ElegantSecondary = Color(0xFFCFD8DC)         // Metallic Silver Accent
+val ElegantSecondaryContainer = Color(0xFF2C2D31) // Brushed Steel Dark Container
+val ElegantOnSecondaryContainer = Color(0xFFFFEBEE) // Bright Accent Highlight
+val ElegantOutline = Color(0xFF37474F)           // Gunmetal Grey border
+val ElegantSuccess = Color(0xFF2E7D32)           // Racing Track Green for success/AWD matches
+val ElegantSuccessContainer = Color(0xFF1B5E20)  // Deep forest green container
+
 

@@ -10,20 +10,20 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
-private val GitHubColorScheme = darkColorScheme(
-  primary = GitHubPrimary,
-  onPrimary = GitHubOnPrimary,
-  secondary = GitHubSecondary,
-  onSecondary = GitHubOnSurface,
-  secondaryContainer = GitHubSecondaryContainer,
-  onSecondaryContainer = GitHubOnSecondaryContainer,
-  background = GitHubBackground,
-  onBackground = GitHubOnBackground,
-  surface = GitHubSurface,
-  onSurface = GitHubOnSurface,
-  surfaceVariant = GitHubSurfaceVariant,
-  onSurfaceVariant = GitHubOnSurfaceVariant,
-  outline = GitHubOutline
+private val ElegantColorScheme = darkColorScheme(
+  primary = ElegantPrimary,
+  onPrimary = ElegantOnPrimary,
+  secondary = ElegantSecondary,
+  onSecondary = ElegantOnPrimary,
+  secondaryContainer = ElegantSecondaryContainer,
+  onSecondaryContainer = ElegantOnSecondaryContainer,
+  background = ElegantBackground,
+  onBackground = ElegantOnBackground,
+  surface = ElegantSurface,
+  onSurface = ElegantOnSurface,
+  surfaceVariant = ElegantSurfaceVariant,
+  onSurfaceVariant = ElegantOnSurfaceVariant,
+  outline = ElegantOutline
 )
 
 private val DarkColorScheme =
@@ -38,11 +38,11 @@ private val LightColorScheme =
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = true, // Force Dark Theme
+  darkTheme: Boolean = true, // Force Dark Theme for Elegant Dark
   dynamicColor: Boolean = false, // Disable dynamic colors to enforce custom palette
   content: @Composable () -> Unit,
 ) {
-  val colorScheme = GitHubColorScheme
+  val colorScheme = ElegantColorScheme
 
   MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

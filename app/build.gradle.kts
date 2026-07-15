@@ -10,15 +10,15 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
-  defaultConfig {
-    applicationId = "com.aistudio.awdcheck.pkhrtw"
-    minSdk = 24
-    targetSdk = 36
-    versionCode = 2
-    versionName = "2.4.0"
+    defaultConfig {
+        applicationId = "com.aistudio.awdcheck.vwyzrn"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 4
+        versionName = "4.0"
 
-    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-  }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
   signingConfigs {
     create("release") {

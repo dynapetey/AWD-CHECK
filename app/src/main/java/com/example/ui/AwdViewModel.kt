@@ -47,6 +47,116 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedScan = MutableStateFlow<VinScan?>(null)
     val selectedScan: StateFlow<VinScan?> = _selectedScan.asStateFlow()
 
+    // API Key Source and Remote URL config
+    private val sharedPrefs = application.getSharedPreferences("awd_prefs", Application.MODE_PRIVATE)
+
+    private val _apiProvider = MutableStateFlow(sharedPrefs.getString("api_provider", "ai_studio") ?: "ai_studio")
+    val apiProvider: StateFlow<String> = _apiProvider.asStateFlow()
+
+    private val _apiKeySource = MutableStateFlow(sharedPrefs.getString("api_key_source", "local") ?: "local")
+    val apiKeySource: StateFlow<String> = _apiKeySource.asStateFlow()
+
+    private val _remoteApiKeyUrl = MutableStateFlow(
+        sharedPrefs.getString("remote_api_key_url", "") ?: ""
+    )
+    val remoteApiKeyUrl: StateFlow<String> = _remoteApiKeyUrl.asStateFlow()
+
+    private val _cachedRemoteApiKey = MutableStateFlow(sharedPrefs.getString("cached_remote_api_key", "") ?: "")
+    val cachedRemoteApiKey: StateFlow<String> = _cachedRemoteApiKey.asStateFlow()
+
+    private val _vertexProjectId = MutableStateFlow(sharedPrefs.getString("vertex_project_id", "") ?: "")
+    val vertexProjectId: StateFlow<String> = _vertexProjectId.asStateFlow()
+
+    private val _vertexRegion = MutableStateFlow(sharedPrefs.getString("vertex_region", "us-central1") ?: "us-central1")
+    val vertexRegion: StateFlow<String> = _vertexRegion.asStateFlow()
+
+    private val _vertexModelName = MutableStateFlow(sharedPrefs.getString("vertex_model_name", "gemini-1.5-flash") ?: "gemini-1.5-flash")
+    val vertexModelName: StateFlow<String> = _vertexModelName.asStateFlow()
+
+    fun saveApiConfig(
+        provider: String,
+        source: String,
+        url: String,
+        projectId: String,
+        region: String,
+        modelName: String
+    ) {
+        _apiProvider.value = provider
+        _apiKeySource.value = source
+        _remoteApiKeyUrl.value = url
+        _vertexProjectId.value = projectId
+        _vertexRegion.value = region
+        _vertexModelName.value = modelName
+
+        sharedPrefs.edit()
+            .putString("api_provider", provider)
+            .putString("api_key_source", source)
+            .putString("remote_api_key_url", url)
+            .putString("vertex_project_id", projectId)
+            .putString("vertex_region", region)
+            .putString("vertex_model_name", modelName)
+            .apply()
+    }
+
+    fun getGeminiRequestUrl(): String {
+        val provider = _apiProvider.value
+        if (provider == "vertex_ai") {
+            val projectId = _vertexProjectId.value.trim()
+            val region = _vertexRegion.value.trim().ifEmpty { "us-central1" }
+            val model = _vertexModelName.value.trim().ifEmpty { "gemini-1.5-flash" }
+            return "https://$region-aiplatform.googleapis.com/v1/projects/$projectId/locations/$region/publishers/google/models/$model:generateContent"
+        } else {
+            return "v1beta/models/gemini-3.5-flash:generateContent"
+        }
+    }
+
+    suspend fun fetchRemoteApiKey(url: String): String = withContext(Dispatchers.IO) {
+        if (url.trim().isEmpty()) throw Exception("Remote URL is empty")
+        val client = okhttp3.OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val request = okhttp3.Request.Builder()
+            .url(url.trim())
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw Exception("HTTP Error ${response.code}: ${response.message}")
+            val body = response.body?.string()?.trim() ?: throw Exception("Empty response body")
+            if (body.isEmpty()) throw Exception("Fetched key is empty")
+            body
+        }
+    }
+
+    suspend fun testRemoteUrl(url: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val key = fetchRemoteApiKey(url)
+            Result.success(key)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEffectiveApiKey(): String {
+        val source = _apiKeySource.value
+        if (source == "local") {
+            return com.example.BuildConfig.GEMINI_API_KEY
+        }
+        val url = _remoteApiKeyUrl.value
+        if (url.trim().isEmpty() || url == "MY_GEMINI_API_KEY_URL") {
+            return com.example.BuildConfig.GEMINI_API_KEY
+        }
+        return try {
+            val fetchedKey = fetchRemoteApiKey(url)
+            _cachedRemoteApiKey.value = fetchedKey
+            sharedPrefs.edit().putString("cached_remote_api_key", fetchedKey).apply()
+            fetchedKey
+        } catch (e: Exception) {
+            Log.e("AwdViewModel", "Failed to fetch remote API key, using cached key: ${e.message}")
+            val cached = sharedPrefs.getString("cached_remote_api_key", "") ?: ""
+            if (cached.isNotEmpty()) cached else com.example.BuildConfig.GEMINI_API_KEY
+        }
+    }
+
     fun selectScan(scan: VinScan?) {
         _selectedScan.value = scan
     }
@@ -115,10 +225,15 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                     bitmapToBase64(resizedBitmap)
                 }
 
-                // 2. Query Gemini to extract VIN
-                val apiKey = com.example.BuildConfig.GEMINI_API_KEY
+                // 2. Query Gemini/Vertex to extract VIN
+                val apiKey = getEffectiveApiKey()
                 if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-                    _uiState.value = ScanUiState.Error("Gemini API key is not configured. Please add it to your secrets inside AI Studio.")
+                    _uiState.value = ScanUiState.Error("Gemini API key is not configured. Please configure it in Settings (the top-right key icon) or add it to AI Studio secrets.")
+                    return@launch
+                }
+
+                if (_apiProvider.value == "vertex_ai" && _vertexProjectId.value.trim().isEmpty()) {
+                    _uiState.value = ScanUiState.Error("Vertex AI Project ID is not configured. Please configure it in Settings (the top-right key icon).")
                     return@launch
                 }
 
@@ -139,8 +254,9 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 )
 
+                val requestUrl = getGeminiRequestUrl()
                 val response = withContext(Dispatchers.IO) {
-                    NetworkClient.geminiService.generateContent(apiKey, request)
+                    NetworkClient.geminiService.generateContent(requestUrl, apiKey, request)
                 }
 
                 val rawResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
@@ -234,9 +350,13 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun queryParkingBrakeWithGemini(year: String, make: String, model: String, vin: String): String = withContext(Dispatchers.IO) {
-        val apiKey = com.example.BuildConfig.GEMINI_API_KEY
+        val apiKey = getEffectiveApiKey()
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
             return@withContext "Unknown (No API Key)"
+        }
+
+        if (_apiProvider.value == "vertex_ai" && _vertexProjectId.value.trim().isEmpty()) {
+            return@withContext "Unknown (Vertex AI Project ID not configured)"
         }
 
         val prompt = "Based on your technical knowledge of vehicles, determine if a $year $make $model (specifically associated with VIN: $vin if applicable) has an Electronic Parking Brake (EPB) or a mechanical handbrake / foot brake. " +
@@ -256,8 +376,9 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
             )
         )
 
+        val requestUrl = getGeminiRequestUrl()
         try {
-            val response = NetworkClient.geminiService.generateContent(apiKey, request)
+            val response = NetworkClient.geminiService.generateContent(requestUrl, apiKey, request)
             response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
                 ?.replace("*", "")?.replace("`", "") ?: "Unknown"
         } catch (e: Exception) {

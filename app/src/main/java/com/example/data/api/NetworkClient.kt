@@ -14,6 +14,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
 // --- NHTSA API Structures ---
@@ -83,8 +84,9 @@ data class GeminiCandidate(
 )
 
 interface GeminiApiService {
-    @POST("v1beta/models/gemini-3.5-flash:generateContent")
+    @POST
     suspend fun generateContent(
+        @Url url: String,
         @Query("key") apiKey: String,
         @Body request: GeminiRequest
     ): GeminiResponse
