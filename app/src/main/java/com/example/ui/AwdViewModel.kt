@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
@@ -310,7 +311,17 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
                 _selectedScan.value = scan
 
             } catch (e: Exception) {
-                _uiState.value = ScanUiState.Error("Error: ${e.localizedMessage ?: e.message}")
+                val errorMsg = when {
+                    e is HttpException && e.code() == 401 ->
+                        "HTTP 401 Unauthorized: The API key is missing, deleted, or unauthorized. Please set a valid API key in Settings (the top-right key icon) or add GEMINI_API_KEY to AI Studio Secrets."
+                    e is HttpException && e.code() == 403 ->
+                        "HTTP 403 Forbidden: Permission denied for this API key. Please check your key permissions."
+                    e.message?.contains("401") == true ->
+                        "HTTP 401 Unauthorized: Invalid or missing API key. Please configure your key in Settings."
+                    else ->
+                        "Error: ${e.localizedMessage ?: e.message}"
+                }
+                _uiState.value = ScanUiState.Error(errorMsg)
             }
         }
     }
