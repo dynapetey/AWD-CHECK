@@ -51,7 +51,10 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
     // API Key Source and Remote URL config
     private val sharedPrefs = application.getSharedPreferences("awd_prefs", Application.MODE_PRIVATE)
 
-    private val _apiProvider = MutableStateFlow(sharedPrefs.getString("api_provider", "ocr_space") ?: "ocr_space")
+    private val _userGeminiApiKey = MutableStateFlow(sharedPrefs.getString("user_gemini_api_key", "") ?: "")
+    val userGeminiApiKey: StateFlow<String> = _userGeminiApiKey.asStateFlow()
+
+    private val _apiProvider = MutableStateFlow(sharedPrefs.getString("api_provider", "ai_studio") ?: "ai_studio")
     val apiProvider: StateFlow<String> = _apiProvider.asStateFlow()
 
     private val _apiKeySource = MutableStateFlow(sharedPrefs.getString("api_key_source", "local") ?: "local")
@@ -76,6 +79,53 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _ocrSpaceApiKey = MutableStateFlow(sharedPrefs.getString("ocr_space_api_key", "K81505784088957") ?: "K81505784088957")
     val ocrSpaceApiKey: StateFlow<String> = _ocrSpaceApiKey.asStateFlow()
+
+    fun saveUserGeminiApiKey(key: String) {
+        val trimmed = key.trim()
+        _userGeminiApiKey.value = trimmed
+        _apiProvider.value = "ai_studio"
+        sharedPrefs.edit()
+            .putString("user_gemini_api_key", trimmed)
+            .putString("api_provider", "ai_studio")
+            .apply()
+    }
+
+    fun isApiKeyConfigured(): Boolean {
+        val userKey = _userGeminiApiKey.value.trim()
+        if (userKey.isNotEmpty()) return true
+        val buildKey = com.example.BuildConfig.GEMINI_API_KEY
+        return buildKey.isNotEmpty() && buildKey != "MY_GEMINI_API_KEY"
+    }
+
+    suspend fun testGeminiApiKey(keyToTest: String): Result<String> = withContext(Dispatchers.IO) {
+        val key = keyToTest.trim()
+        if (key.isEmpty()) {
+            return@withContext Result.failure(Exception("API Key cannot be empty."))
+        }
+        try {
+            val request = GeminiRequest(
+                contents = listOf(
+                    GeminiContent(
+                        parts = listOf(GeminiPart(text = "Hello Gemini"))
+                    )
+                )
+            )
+            val url = "v1beta/models/gemini-3.5-flash:generateContent"
+            val response = NetworkClient.geminiService.generateContent(url, key, request)
+            if (response.candidates?.isNotEmpty() == true) {
+                Result.success("API key verified successfully!")
+            } else {
+                Result.success("Key accepted by Gemini API.")
+            }
+        } catch (e: Exception) {
+            val msg = when {
+                e is HttpException && e.code() == 401 -> "HTTP 401: Invalid or unauthorized Gemini API key."
+                e is HttpException && e.code() == 403 -> "HTTP 403: Permission denied for this Gemini API key."
+                else -> e.message ?: "Failed to verify key."
+            }
+            Result.failure(Exception(msg))
+        }
+    }
 
     fun saveApiConfig(
         provider: String,
@@ -144,6 +194,10 @@ class AwdViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun getEffectiveApiKey(): String {
+        val userKey = _userGeminiApiKey.value.trim()
+        if (userKey.isNotEmpty()) {
+            return userKey
+        }
         val source = _apiKeySource.value
         if (source == "local") {
             return com.example.BuildConfig.GEMINI_API_KEY

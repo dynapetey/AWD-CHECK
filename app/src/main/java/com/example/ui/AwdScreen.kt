@@ -53,12 +53,16 @@ import java.util.concurrent.Executors
 fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedScan by viewModel.selectedScan.collectAsState()
+    val userApiKey by viewModel.userGeminiApiKey.collectAsState()
 
     var showCameraScanner by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
+    var forceShowSetupScreen by remember { mutableStateOf(false) }
 
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     val context = LocalContext.current
+
+    val isKeyConfigured = userApiKey.trim().isNotEmpty()
 
     // Gallery Picker launcher
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -82,6 +86,19 @@ fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
             .background(Color.Black)
     ) {
         when {
+            // 0. API Key Onboarding / Setup Screen (shown on first install or when explicitly opened)
+            !isKeyConfigured || forceShowSetupScreen -> {
+                GeminiApiKeySetupScreen(
+                    viewModel = viewModel,
+                    onKeySaved = {
+                        forceShowSetupScreen = false
+                    },
+                    canSkip = isKeyConfigured,
+                    onSkip = {
+                        forceShowSetupScreen = false
+                    }
+                )
+            }
             // 1. Loading State (corresponds to provider.isLoading in Flutter)
             uiState is ScanUiState.ExtractingVin || uiState is ScanUiState.DecodingVin -> {
                 LoadingScreen()
@@ -107,6 +124,9 @@ fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
                     },
                     onSettingsClick = {
                         showApiKeyDialog = true
+                    },
+                    onKeySetupClick = {
+                        forceShowSetupScreen = true
                     }
                 )
             }
@@ -136,7 +156,11 @@ fun AwdScreen(viewModel: AwdViewModel, modifier: Modifier = Modifier) {
         if (showApiKeyDialog) {
             ApiKeySettingsDialog(
                 viewModel = viewModel,
-                onDismiss = { showApiKeyDialog = false }
+                onDismiss = { showApiKeyDialog = false },
+                onOpenKeySetup = {
+                    showApiKeyDialog = false
+                    forceShowSetupScreen = true
+                }
             )
         }
     }
@@ -181,7 +205,8 @@ fun LoadingScreen() {
 fun HomeScreenContent(
     errorMessage: String?,
     onScanClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onKeySetupClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -192,21 +217,36 @@ fun HomeScreenContent(
                 )
             )
     ) {
-        // Subtle Gear Settings button in top right
-        IconButton(
-            onClick = onSettingsClick,
+        // Top right actions
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(16.dp)
-                .testTag("settings_button")
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Settings,
-                contentDescription = "Configure API",
-                tint = Color(0xFFE50914),
-                modifier = Modifier.size(24.dp)
-            )
+            IconButton(
+                onClick = onKeySetupClick,
+                modifier = Modifier.testTag("key_setup_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Key,
+                    contentDescription = "Gemini Key Setup",
+                    tint = Color(0xFFE50914),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = "Configure API",
+                    tint = Color(0xFFE50914),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         Column(
@@ -872,7 +912,8 @@ fun CameraScannerScreen(
 @Composable
 fun ApiKeySettingsDialog(
     viewModel: AwdViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenKeySetup: () -> Unit = {}
 ) {
     val provider by viewModel.apiProvider.collectAsState()
     val source by viewModel.apiKeySource.collectAsState()
@@ -917,6 +958,25 @@ fun ApiKeySettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Quick shortcut button to key setup
+                Button(
+                    onClick = {
+                        onOpenKeySetup()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("open_key_setup_dialog_button")
+                ) {
+                    Icon(imageVector = Icons.Rounded.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Gemini API Key Setup & Instructions")
+                }
+
                 Text(
                     text = "Configure the API service provider and authentication setup for VIN scanner OCR and details extraction.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -1236,4 +1296,426 @@ fun ApiKeySettingsDialog(
             }
         }
     )
+}
+
+@Composable
+fun GeminiApiKeySetupScreen(
+    viewModel: AwdViewModel,
+    onKeySaved: () -> Unit,
+    canSkip: Boolean = false,
+    onSkip: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val userKey by viewModel.userGeminiApiKey.collectAsState()
+
+    var apiKeyInput by remember { mutableStateOf(userKey) }
+    var isKeyVisible by remember { mutableStateOf(false) }
+    var testResultMsg by remember { mutableStateOf<String?>(null) }
+    var isTesting by remember { mutableStateOf(false) }
+    var isSuccess by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1F1F28), Color(0xFF0F0F14))
+                )
+            )
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Header Icon & Title
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE50914).copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Key,
+                    contentDescription = null,
+                    tint = Color(0xFFE50914),
+                    modifier = Modifier.size(38.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Gemini API Key Setup",
+                style = TextStyle(
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "To scan VIN numbers and fetch vehicle details using Google Gemini AI, please configure your personal API key.",
+                style = TextStyle(
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Instructions Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF282834)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.HelpOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFE50914),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "How to get a free Gemini API key:",
+                            style = TextStyle(
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+
+                    InstructionStepItem(
+                        number = "1",
+                        title = "Visit Google AI Studio",
+                        desc = "Click the button below or go to aistudio.google.com in your browser."
+                    )
+
+                    InstructionStepItem(
+                        number = "2",
+                        title = "Sign in with Google",
+                        desc = "Log in with any personal or workspace Google Account."
+                    )
+
+                    InstructionStepItem(
+                        number = "3",
+                        title = "Get API Key",
+                        desc = "Click 'Get API key' or 'Create API key' in Google AI Studio."
+                    )
+
+                    InstructionStepItem(
+                        number = "4",
+                        title = "Copy & Paste",
+                        desc = "Copy your key (starts with AIzaSy...) and paste it in the box below."
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Button to launch AI Studio website
+                    Button(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                Uri.parse("https://aistudio.google.com/app/apikey")
+                            )
+                            context.startActivity(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE50914),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("get_api_key_browser_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Get Gemini API Key (aistudio.google.com)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Input Field Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF282834)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Enter Gemini API Key",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = {
+                            apiKeyInput = it
+                            testResultMsg = null
+                        },
+                        placeholder = { Text("AIzaSy...", color = Color.White.copy(alpha = 0.4f)) },
+                        singleLine = true,
+                        visualTransformation = if (isKeyVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (apiKeyInput.isNotEmpty()) {
+                                    IconButton(onClick = { apiKeyInput = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Clear,
+                                            contentDescription = "Clear",
+                                            tint = Color.White.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = {
+                                    val clipText = clipboardManager.getText()?.text
+                                    if (!clipText.isNullOrBlank()) {
+                                        apiKeyInput = clipText
+                                        testResultMsg = null
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentPaste,
+                                        contentDescription = "Paste",
+                                        tint = Color(0xFFE50914)
+                                    )
+                                }
+                                IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
+                                    Icon(
+                                        imageVector = if (isKeyVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                        contentDescription = "Toggle Visibility",
+                                        tint = Color.White.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE50914),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFFE50914)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("gemini_api_key_input")
+                    )
+
+                    Text(
+                        text = "Your key is saved locally on your device and used only for Gemini AI requests.",
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp
+                        )
+                    )
+
+                    testResultMsg?.let { msg ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isSuccess) Color(0xFF1B5E20).copy(alpha = 0.5f)
+                                    else Color(0xFFB71C1C).copy(alpha = 0.5f)
+                                )
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = msg,
+                                style = TextStyle(
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Test Button
+                        OutlinedButton(
+                            onClick = {
+                                isTesting = true
+                                testResultMsg = null
+                                coroutineScope.launch {
+                                    val result = viewModel.testGeminiApiKey(apiKeyInput)
+                                    isTesting = false
+                                    if (result.isSuccess) {
+                                        isSuccess = true
+                                        testResultMsg = result.getOrNull() ?: "Key verified successfully!"
+                                    } else {
+                                        isSuccess = false
+                                        testResultMsg = result.exceptionOrNull()?.message ?: "Verification failed."
+                                    }
+                                }
+                            },
+                            enabled = !isTesting && apiKeyInput.trim().isNotEmpty(),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("test_gemini_key_button")
+                        ) {
+                            if (isTesting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Text("Test Key", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        // Save Button
+                        Button(
+                            onClick = {
+                                if (apiKeyInput.trim().isEmpty()) {
+                                    isSuccess = false
+                                    testResultMsg = "Please enter an API key first."
+                                    return@Button
+                                }
+                                viewModel.saveUserGeminiApiKey(apiKeyInput)
+                                onKeySaved()
+                            },
+                            enabled = apiKeyInput.trim().isNotEmpty(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE50914),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("save_gemini_key_button")
+                        ) {
+                            Text("Save & Continue", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    if (canSkip) {
+                        TextButton(
+                            onClick = onSkip,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("skip_key_setup_button")
+                        ) {
+                            Text(
+                                text = "Cancel / Back to App",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun InstructionStepItem(
+    number: String,
+    title: String,
+    desc: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE50914)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = number,
+                style = TextStyle(
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = TextStyle(
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+            )
+            Text(
+                text = desc,
+                style = TextStyle(
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            )
+        }
+    }
 }
